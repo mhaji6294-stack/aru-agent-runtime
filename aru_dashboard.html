@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ARU Certification Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f8f7;color:#1a1a18;min-height:100vh}
+.topbar{background:#fff;border-bottom:0.5px solid #e0dfd8;padding:0 2rem;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0}
+.logo{font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:#1d9e75;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.container{max-width:960px;margin:0 auto;padding:2rem}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:2rem}
+.metric{background:#fff;border:0.5px solid #e0dfd8;border-radius:10px;padding:1rem 1.25rem}
+.metric-label{font-size:12px;color:#888;margin-bottom:6px}
+.metric-value{font-size:24px;font-weight:500}
+.green{color:#0f6e56}.red{color:#993c1d}.blue{color:#185fa5}
+.toolbar{display:flex;gap:8px;margin-bottom:1rem}
+.toolbar input,.toolbar select{font-size:13px;padding:7px 10px;border-radius:8px;border:0.5px solid #ccc;background:#fff;color:#1a1a18;outline:none}
+.toolbar input{flex:1}
+.section-label{font-size:13px;font-weight:500;color:#666;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.feed{display:flex;flex-direction:column;gap:6px}
+.cert-row{background:#fff;border:0.5px solid #e0dfd8;border-radius:10px;padding:12px 16px;display:grid;grid-template-columns:80px 1fr auto;align-items:start;gap:16px}
+.cert-row:hover{border-color:#bbb}
+.badge{font-size:11px;font-weight:500;padding:3px 8px;border-radius:4px;text-align:center;margin-top:2px}
+.badge.ok{background:#e1f5ee;color:#0f6e56}
+.badge.fail{background:#faece7;color:#993c1d}
+.cert-tool{font-size:14px;font-weight:500}
+.cert-path{font-size:12px;color:#888;margin-top:2px}
+.cert-meta{display:flex;gap:12px;margin-top:6px;flex-wrap:wrap}
+.cert-id{font-family:monospace;font-size:11px;color:#185fa5;background:#e6f1fb;padding:2px 6px;border-radius:4px}
+.cert-hash{font-family:monospace;font-size:10px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+.cert-time{font-size:11px;color:#aaa;white-space:nowrap}
+.empty{text-align:center;padding:3rem;color:#aaa;font-size:14px;background:#fff;border:0.5px solid #e0dfd8;border-radius:10px}
+.drop-zone{border:1.5px dashed #ccc;border-radius:10px;padding:2rem;text-align:center;margin-bottom:1.5rem;cursor:pointer}
+.drop-zone:hover{border-color:#1d9e75}
+.drop-zone p{font-size:13px;color:#888}
+.drop-zone strong{color:#1a1a18}
+.file-btn{display:inline-block;margin-top:8px;font-size:12px;padding:6px 14px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer;background:#fff;color:#444}
+#file-input{display:none}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><span class="dot"></span> ARU Certification Dashboard</div>
+  <div style="font-size:12px;color:#888" id="last-updated">No data loaded</div>
+</div>
+<div class="container">
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Total certifications</div><div class="metric-value blue" id="m-total">0</div></div>
+    <div class="metric"><div class="metric-label">Approved</div><div class="metric-value green" id="m-ok">0</div></div>
+    <div class="metric"><div class="metric-label">Rejected</div><div class="metric-value red" id="m-fail">0</div></div>
+    <div class="metric"><div class="metric-label">Pass rate</div><div class="metric-value" id="m-rate">-</div></div>
+  </div>
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <p><strong>Drop aru_cert_ledger.jsonl here</strong></p>
+    <p>or click to browse</p>
+    <span class="file-btn">Choose file</span>
+    <input type="file" id="file-input" accept=".jsonl,.json,.txt" onchange="handleFile(this.files[0])">
+  </div>
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Search tool, cert ID..." oninput="render()">
+    <select id="filter" onchange="render()">
+      <option value="all">All</option>
+      <option value="approved">Approved</option>
+      <option value="rejected">Rejected</option>
+    </select>
+  </div>
+  <div class="section-label"><span class="dot" style="width:6px;height:6px"></span> Certification feed</div>
+  <div class="feed" id="feed"><div class="empty">Load a ledger file to view certifications.</div></div>
+</div>
+<script>
+let certs=[];
+function handleFile(f){if(!f)return;const r=new FileReader();r.onload=e=>{parseLedger(e.target.result)};r.readAsText(f)}
+function parseLedger(raw){const lines=raw.trim().split('\n').filter(l=>l.trim());const p=[];for(const l of lines){try{p.push(JSON.parse(l))}catch(e){}}if(p.length){certs=p;document.getElementById('last-updated').textContent='Loaded '+p.length+' entries';render()}}
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.style.borderColor='#1d9e75'});
+dz.addEventListener('dragleave',()=>dz.style.borderColor='#ccc');
+dz.addEventListener('drop',e=>{e.preventDefault();dz.style.borderColor='#ccc';const f=e.dataTransfer.files[0];if(f)handleFile(f)});
+function fmtTime(ts){try{const d=new Date(ts);return d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}catch{return ts}}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function render(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const f=document.getElementById('filter').value;
+  let fil=certs.filter(c=>{
+    if(f==='approved'&&!c.approved)return false;
+    if(f==='rejected'&&c.approved)return false;
+    if(q&&!(c.cert_id+c.tool+(c.input_path||'')).toLowerCase().includes(q))return false;
+    return true;
+  });
+  const total=certs.length,ok=certs.filter(c=>c.approved).length,fail=total-ok;
+  document.getElementById('m-total').textContent=total;
+  document.getElementById('m-ok').textContent=ok;
+  document.getElementById('m-fail').textContent=fail;
+  document.getElementById('m-rate').textContent=total?Math.round((ok/total)*100)+'%':'-';
+  const feed=document.getElementById('feed');
+  if(!fil.length){feed.innerHTML='<div class="empty">No results.</div>';return}
+  feed.innerHTML=[...fil].reverse().map(c=>`
+    <div class="cert-row">
+      <div><span class="badge ${c.approved?'ok':'fail'}">${c.approved?'approved':'rejected'}</span></div>
+      <div>
+        <div class="cert-tool">${esc(c.tool)}</div>
+        ${c.input_path&&c.input_path!=='—'?`<div class="cert-path">${esc(c.input_path)}</div>`:''}
+        <div class="cert-meta"><span class="cert-id">${esc(c.cert_id)}</span><span class="cert-hash">${esc(c.hash)}</span></div>
+      </div>
+      <div class="cert-time">${fmtTime(c.timestamp)}</div>
+    </div>`).join('');
+}
+</script>
+</body>
+</html>

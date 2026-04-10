@@ -1,0 +1,2 @@
+## Last session
+I read the contents of `cert_ledger.jsonl` from the workspace, which contained 3 JSON lines representing certificate ledger entries with timestamps, cert IDs, tool operations, and approval statuses. I then wrote the exact contents to a new file called `ledger_export.txt`.
